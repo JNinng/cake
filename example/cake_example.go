@@ -15,6 +15,12 @@ func main() {
 		// /hello?name=admin
 		c.String(http.StatusOK, "hello: %s\n", c.Query("name"))
 	})
+	web.GET("/user/:id", func(c *cake.Context) {
+		c.String(http.StatusOK, "user id: %s\n", c.Param("id"))
+	})
+	web.GET("/file/user/123/*.png", func(c *cake.Context) {
+		c.String(http.StatusOK, "file: %s\n", c.Param(".png"))
+	})
 	web.POST("/login", func(c *cake.Context) {
 		// /login?name=admin&password=pwd
 		c.JSON(http.StatusOK, cake.H{
