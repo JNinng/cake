@@ -28,6 +28,24 @@ func main() {
 			"password": c.PostForm("password"),
 		})
 	})
+	v1 := web.Group("/api/v1")
+	{
+		v1.GET("/user/:id", func(c *cake.Context) {
+			c.JSON(http.StatusOK, cake.H{
+				"id":      c.Param("id"),
+				"version": "v1",
+			})
+		})
+	}
+	v2 := web.Group("/api/v2")
+	{
+		v2.GET("/user/:id", func(c *cake.Context) {
+			c.JSON(http.StatusOK, cake.H{
+				"id":      c.Param("id"),
+				"version": "v2",
+			})
+		})
+	}
 	err := web.Run(":8080")
 	if err != nil {
 		log.Println(err)

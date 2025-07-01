@@ -7,7 +7,16 @@ import (
 
 type HandlerFunc func(c *Context)
 
+type RouterGroup struct {
+	prefix      string
+	middlewares []HandlerFunc
+	parent      *RouterGroup
+	engine      *Engine
+}
+
 type Engine struct {
+	*RouterGroup
+	groups     []*RouterGroup
 	router     *router
 	ctxFactory ContextFactory
 }
@@ -32,7 +41,10 @@ func New() *Engine {
 			return new(Context)
 		},
 	}
-	return &Engine{router: newRouter(), ctxFactory: &poolContextFactor{pool: pool}}
+	engine := &Engine{router: newRouter()}
+	engine.RouterGroup = &RouterGroup{engine: engine}
+	engine.ctxFactory = &poolContextFactor{pool: pool}
+	return engine
 }
 
 // Run 运行
@@ -45,6 +57,30 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	c := engine.ctxFactory.Get(w, req)
 	defer engine.ctxFactory.Put(c)
 	engine.router.handle(c)
+}
+
+func (g *RouterGroup) Group(prefix string) *RouterGroup {
+	engine := g.engine
+	newGroup := &RouterGroup{
+		prefix: g.prefix + prefix,
+		engine: engine,
+		parent: g,
+	}
+	engine.groups = append(engine.groups, newGroup)
+	return newGroup
+}
+
+func (g *RouterGroup) addRoute(method string, comp string, handler HandlerFunc) {
+	pattern := g.prefix + comp
+	g.engine.addRoute(method, pattern, handler)
+}
+
+func (g *RouterGroup) GET(pattern string, handler HandlerFunc) {
+	g.addRoute(http.MethodGet, pattern, handler)
+}
+
+func (g *RouterGroup) POST(pattern string, handler HandlerFunc) {
+	g.addRoute(http.MethodPost, pattern, handler)
 }
 
 // addRoute 添加路由
