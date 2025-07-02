@@ -8,6 +8,7 @@ import (
 
 func main() {
 	web := cake.New()
+	web.Use(Logger())
 	web.GET("/", func(c *cake.Context) {
 		c.HTML(http.StatusOK, "<h1>Hello World</h1>")
 	})
@@ -29,6 +30,7 @@ func main() {
 		})
 	})
 	v1 := web.Group("/api/v1")
+	v1.Use(V1Logger())
 	{
 		v1.GET("/user/:id", func(c *cake.Context) {
 			c.JSON(http.StatusOK, cake.H{
@@ -38,6 +40,7 @@ func main() {
 		})
 	}
 	v2 := web.Group("/api/v2")
+	v2.Use(V2Logger())
 	{
 		v2.GET("/user/:id", func(c *cake.Context) {
 			c.JSON(http.StatusOK, cake.H{
@@ -50,5 +53,26 @@ func main() {
 	if err != nil {
 		log.Println(err)
 		return
+	}
+}
+
+func Logger() cake.HandlerFunc {
+	return func(c *cake.Context) {
+		log.Printf("%s\n", c.Path)
+		c.Next()
+	}
+}
+
+func V1Logger() cake.HandlerFunc {
+	return func(c *cake.Context) {
+		log.Printf("[v1] %s\n", c.Path)
+		c.Next()
+	}
+}
+
+func V2Logger() cake.HandlerFunc {
+	return func(c *cake.Context) {
+		log.Printf("[v2] %s\n", c.Path)
+		c.Next()
 	}
 }

@@ -2,6 +2,7 @@ package cake
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -44,6 +45,7 @@ func New() *Engine {
 	engine := &Engine{router: newRouter()}
 	engine.RouterGroup = &RouterGroup{engine: engine}
 	engine.ctxFactory = &poolContextFactor{pool: pool}
+	engine.groups = []*RouterGroup{engine.RouterGroup}
 	return engine
 }
 
@@ -54,9 +56,20 @@ func (engine *Engine) Run(addr string) error {
 
 // ServeHTTP
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var middlewares []HandlerFunc
+	for _, group := range engine.groups {
+		if strings.HasPrefix(req.URL.Path, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
 	c := engine.ctxFactory.Get(w, req)
 	defer engine.ctxFactory.Put(c)
+	c.handlers = middlewares
 	engine.router.handle(c)
+}
+
+func (g *RouterGroup) Use(middlewares ...HandlerFunc) {
+	g.middlewares = append(g.middlewares, middlewares...)
 }
 
 func (g *RouterGroup) Group(prefix string) *RouterGroup {
