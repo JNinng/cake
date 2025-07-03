@@ -9,6 +9,7 @@ import (
 func main() {
 	web := cake.New()
 	web.Use(Logger())
+	web.Static("/assets", "./example/static")
 	web.GET("/", func(c *cake.Context) {
 		c.HTML(http.StatusOK, "<h1>Hello World</h1>")
 	})

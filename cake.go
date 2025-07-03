@@ -1,7 +1,9 @@
 package cake
 
 import (
+	"log"
 	"net/http"
+	"path"
 	"strings"
 	"sync"
 )
@@ -85,7 +87,7 @@ func (g *RouterGroup) Group(prefix string) *RouterGroup {
 
 func (g *RouterGroup) addRoute(method string, comp string, handler HandlerFunc) {
 	pattern := g.prefix + comp
-	g.engine.addRoute(method, pattern, handler)
+	g.engine.router.addRoute(method, pattern, handler)
 }
 
 func (g *RouterGroup) GET(pattern string, handler HandlerFunc) {
@@ -94,6 +96,26 @@ func (g *RouterGroup) GET(pattern string, handler HandlerFunc) {
 
 func (g *RouterGroup) POST(pattern string, handler HandlerFunc) {
 	g.addRoute(http.MethodPost, pattern, handler)
+}
+
+func (g *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+	absolutePath := path.Join(g.prefix, relativePath)
+	fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
+	return func(c *Context) {
+		file := c.Param("filepath")
+		log.Printf("serving file %v \n", fs)
+		if _, err := fs.Open(file); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		fileServer.ServeHTTP(c.Writer, c.Req)
+	}
+}
+
+func (g *RouterGroup) Static(relativePath string, root string) {
+	handler := g.createStaticHandler(relativePath, http.Dir(root))
+	urlPattern := path.Join(relativePath, "/*filepath")
+	g.GET(urlPattern, handler)
 }
 
 // addRoute 添加路由
