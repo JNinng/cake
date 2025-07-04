@@ -4,14 +4,19 @@ import (
 	"cake"
 	"log"
 	"net/http"
+	"time"
 )
 
 func main() {
 	web := cake.New()
 	web.Use(Logger())
+	web.LoadHTMLGlob("./example/templates/*")
 	web.Static("/assets", "./example/static")
 	web.GET("/", func(c *cake.Context) {
-		c.HTML(http.StatusOK, "<h1>Hello World</h1>")
+		c.HTML(http.StatusOK, "home.tmpl", cake.H{
+			"title": "Home",
+			"date":  time.Now().Format(time.DateTime),
+		})
 	})
 	web.GET("/hello", func(c *cake.Context) {
 		// /hello?name=admin

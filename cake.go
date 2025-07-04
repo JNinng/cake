@@ -1,6 +1,7 @@
 package cake
 
 import (
+	"html/template"
 	"log"
 	"net/http"
 	"path"
@@ -19,9 +20,11 @@ type RouterGroup struct {
 
 type Engine struct {
 	*RouterGroup
-	groups     []*RouterGroup
-	router     *router
-	ctxFactory ContextFactory
+	groups       []*RouterGroup
+	router       *router
+	ctxFactory   ContextFactory
+	htmlTemplate *template.Template
+	tmpFuncMap   template.FuncMap
 }
 
 type poolContextFactor struct {
@@ -67,6 +70,7 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	c := engine.ctxFactory.Get(w, req)
 	defer engine.ctxFactory.Put(c)
 	c.handlers = middlewares
+	c.engine = engine
 	engine.router.handle(c)
 }
 
@@ -116,6 +120,14 @@ func (g *RouterGroup) Static(relativePath string, root string) {
 	handler := g.createStaticHandler(relativePath, http.Dir(root))
 	urlPattern := path.Join(relativePath, "/*filepath")
 	g.GET(urlPattern, handler)
+}
+
+func (engine *Engine) SetTmpFunMap(tmpl *template.Template) {
+	engine.tmpFuncMap = template.FuncMap{}
+}
+
+func (engine *Engine) LoadHTMLGlob(pattern string) {
+	engine.htmlTemplate = template.Must(template.New("").ParseGlob(pattern))
 }
 
 // addRoute 添加路由
