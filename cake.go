@@ -1,7 +1,10 @@
 package cake
 
 import (
+	"html/template"
+	"log"
 	"net/http"
+	"path"
 	"strings"
 	"sync"
 )
@@ -17,9 +20,11 @@ type RouterGroup struct {
 
 type Engine struct {
 	*RouterGroup
-	groups     []*RouterGroup
-	router     *router
-	ctxFactory ContextFactory
+	groups       []*RouterGroup
+	router       *router
+	ctxFactory   ContextFactory
+	htmlTemplate *template.Template
+	tmpFuncMap   template.FuncMap
 }
 
 type poolContextFactor struct {
@@ -65,6 +70,7 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	c := engine.ctxFactory.Get(w, req)
 	defer engine.ctxFactory.Put(c)
 	c.handlers = middlewares
+	c.engine = engine
 	engine.router.handle(c)
 }
 
@@ -85,7 +91,7 @@ func (g *RouterGroup) Group(prefix string) *RouterGroup {
 
 func (g *RouterGroup) addRoute(method string, comp string, handler HandlerFunc) {
 	pattern := g.prefix + comp
-	g.engine.addRoute(method, pattern, handler)
+	g.engine.router.addRoute(method, pattern, handler)
 }
 
 func (g *RouterGroup) GET(pattern string, handler HandlerFunc) {
@@ -94,6 +100,34 @@ func (g *RouterGroup) GET(pattern string, handler HandlerFunc) {
 
 func (g *RouterGroup) POST(pattern string, handler HandlerFunc) {
 	g.addRoute(http.MethodPost, pattern, handler)
+}
+
+func (g *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+	absolutePath := path.Join(g.prefix, relativePath)
+	fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
+	return func(c *Context) {
+		file := c.Param("filepath")
+		log.Printf("serving file %v \n", fs)
+		if _, err := fs.Open(file); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		fileServer.ServeHTTP(c.Writer, c.Req)
+	}
+}
+
+func (g *RouterGroup) Static(relativePath string, root string) {
+	handler := g.createStaticHandler(relativePath, http.Dir(root))
+	urlPattern := path.Join(relativePath, "/*filepath")
+	g.GET(urlPattern, handler)
+}
+
+func (engine *Engine) SetTmpFunMap(tmpl *template.Template) {
+	engine.tmpFuncMap = template.FuncMap{}
+}
+
+func (engine *Engine) LoadHTMLGlob(pattern string) {
+	engine.htmlTemplate = template.Must(template.New("").ParseGlob(pattern))
 }
 
 // addRoute 添加路由

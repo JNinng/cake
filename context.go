@@ -14,6 +14,7 @@ type ContextFactory interface {
 }
 
 type Context struct {
+	engine     *Engine
 	Writer     http.ResponseWriter
 	Req        *http.Request
 	Path       string
@@ -48,6 +49,11 @@ func updateContext(c *Context, w http.ResponseWriter, req *http.Request) {
 	c.Path = req.URL.Path
 	c.Method = req.Method
 	c.index = -1
+}
+
+func (c *Context) Fail(code int, err string) {
+	c.index = len(c.handlers)
+	c.JSON(code, H{"msg": err})
 }
 
 func (c *Context) Param(key string) string {
@@ -92,8 +98,10 @@ func (c *Context) Data(code int, data []byte) {
 	_, _ = c.Writer.Write(data)
 }
 
-func (c *Context) HTML(code int, html string) {
+func (c *Context) HTML(code int, name string, data interface{}) {
 	c.SetHeader("Content-Type", "text/html")
 	c.Status(code)
-	_, _ = c.Writer.Write([]byte(html))
+	if err := c.engine.htmlTemplate.ExecuteTemplate(c.Writer, name, data); err != nil {
+		c.Fail(http.StatusInternalServerError, err.Error())
+	}
 }
