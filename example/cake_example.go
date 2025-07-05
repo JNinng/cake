@@ -8,8 +8,7 @@ import (
 )
 
 func main() {
-	web := cake.New()
-	web.Use(Logger())
+	web := cake.Default()
 	web.LoadHTMLGlob("./example/templates/*")
 	web.Static("/assets", "./example/static")
 	web.GET("/", func(c *cake.Context) {
@@ -27,6 +26,12 @@ func main() {
 	})
 	web.GET("/file/user/123/*.png", func(c *cake.Context) {
 		c.String(http.StatusOK, "file: %s\n", c.Param(".png"))
+	})
+	web.GET("/out", func(c *cake.Context) {
+		out := []string{""}
+		c.JSON(http.StatusOK, cake.H{
+			"out": out[len(out)+1],
+		})
 	})
 	web.POST("/login", func(c *cake.Context) {
 		// /login?name=admin&password=pwd
@@ -59,13 +64,6 @@ func main() {
 	if err != nil {
 		log.Println(err)
 		return
-	}
-}
-
-func Logger() cake.HandlerFunc {
-	return func(c *cake.Context) {
-		log.Printf("%s\n", c.Path)
-		c.Next()
 	}
 }
 
